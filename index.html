@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>쌍곡선으로 찾는 지진 진앙</title>
+<style>
+:root{--bg:#f4f7fb;--panel:#fff;--ink:#172033;--muted:#64748b;--line:#dce4ef;--blue:#2457d6;--teal:#0f9b8e;--orange:#e58a24;--red:#d94c58}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif}
+header{padding:28px 20px 24px;background:linear-gradient(120deg,#172b58,#2457d6);color:white}
+.wrap{max-width:1120px;margin:auto;padding:0 18px}header .eyebrow{font-size:12px;letter-spacing:.12em;opacity:.8;font-weight:700}h1{font-size:clamp(25px,4vw,38px);margin:8px 0}header p{margin:0;line-height:1.7;max-width:760px;color:#e2eaff}
+main{padding:22px 0 40px}.grid{display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 8px 26px #1a31500a}
+h2{font-size:18px;margin:0 0 15px}.sub{font-size:13px;color:var(--muted);line-height:1.6}
+label{display:block;font-size:13px;font-weight:700;margin:15px 0 7px}
+input[type=number],select{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 11px;font:inherit;background:white;color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--blue)}.rangehead{display:flex;justify-content:space-between;gap:8px;font-size:13px}.rangehead strong{color:var(--blue)}
+button{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:750;cursor:pointer}
+.primary{background:var(--blue);color:white;width:100%;margin-top:18px}.secondary{background:#eaf0ff;color:#2449a6}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{padding:13px;border:1px solid var(--line);border-radius:13px;background:#fbfcff}.stat span{font-size:12px;color:var(--muted);display:block}.stat strong{font-size:20px;display:block;margin-top:5px}
+.canvasbox{background:#fbfdff;border:1px solid var(--line);border-radius:14px;overflow:hidden}canvas{width:100%;height:auto;display:block;touch-action:pan-y}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0;font-size:12px;color:var(--muted)}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.note{border-left:3px solid var(--teal);background:#effaf8;padding:12px 14px;border-radius:0 10px 10px 0;font-size:13px;line-height:1.65;margin-top:14px}
+.formula{font-family:Georgia,serif;font-size:18px;text-align:center;background:#f2f5ff;padding:12px;border-radius:10px;margin:10px 0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}.step{padding:14px;border:1px solid var(--line);border-radius:13px;background:#fff}.step b{display:block;margin-bottom:5px;font-size:13px}.step p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:10px 18px 28px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.statgrid{grid-template-columns:repeat(3,1fr)}.steps{grid-template-columns:1fr}.panel{padding:16px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="eyebrow">GEOMETRY × EARTH SCIENCE</div><h1>쌍곡선으로 찾는 지진 진앙</h1><p>관측소에 지진파가 도착한 시간 차이를 거리 차이로 바꾸고, 쌍곡선의 교차를 이용해 진앙 후보를 추정하는 간단한 시뮬레이션입니다.</p></div></header>
+<main class="wrap">
+<div class="grid">
+<section class="panel">
+<h2>시뮬레이션 조건</h2><p class="sub">값을 바꾸면 오른쪽 그래프가 즉시 갱신됩니다. 관측소는 예시 좌표이며, 실제 지진 관측 자료가 아닙니다.</p>
+<label for="speed">지진파 속도 (km/s)</label><div class="rangehead"><span>속도</span><strong id="speedOut">6.0 km/s</strong></div><input id="speed" type="range" min="3" max="8" step=".5" value="6">
+<label for="dt1">관측소 A–B 도착 시간 차이</label><div class="rangehead"><span>Δt₁</span><strong id="dt1Out">1.0초</strong></div><input id="dt1" type="range" min=".2" max="3" step=".1" value="1">
+<label for="dt2">관측소 A–C 도착 시간 차이</label><div class="rangehead"><span>Δt₂</span><strong id="dt2Out">1.4초</strong></div><input id="dt2" type="range" min=".2" max="3" step=".1" value="1.4">
+<label for="noise">도착 시간 측정 오차 (모형)</label><div class="rangehead"><span>오차 크기</span><strong id="noiseOut">0.0초</strong></div><input id="noise" type="range" min="0" max=".5" step=".05" value="0">
+<div class="row"><button class="secondary" id="reset">초기값</button><button class="secondary" id="toggle">관측소 좌표 보기</button></div>
+<div class="note"><b>모형의 가정</b><br>지진파는 모든 방향으로 일정한 속도로 이동하고, 진앙은 평면 위에 있다고 가정합니다. 실제 지구 내부에서는 속도가 달라지며 진원의 깊이도 고려해야 합니다.</div>
+</section>
+<section class="panel">
+<h2>진앙 후보 그래프</h2>
+<div class="statgrid">
+<div class="stat"><span>가정한 파동 속도</span><strong id="statSpeed">6.0</strong></div>
+<div class="stat"><span>거리 차이 A–B</span><strong id="dist1">6.0 km</strong></div>
+<div class="stat"><span>거리 차이 A–C</span><strong id="dist2">8.4 km</strong></div>
+</div>
+<div class="canvasbox"><canvas id="plot" width="760" height="510" aria-label="관측소와 쌍곡선 그래프"></canvas></div>
+<div class="legend"><span><i class="dot" style="background:#2457d6"></i>관측소 A–B 조건</span><span><i class="dot" style="background:#0f9b8e"></i>관측소 A–C 조건</span><span><i class="dot" style="background:#e58a24"></i>예시 진앙</span><span><i class="dot" style="background:#172033"></i>관측소</span></div>
+<p class="sub" id="graphText">두 쌍곡선의 교차 부근이 진앙 후보가 됩니다. 관측소 배치와 시간 차이에 따라 교차 위치가 달라집니다.</p>
+</section>
+</div>
+<div class="steps">
+<div class="step"><b>① 시간 차이를 거리 차이로 변환</b><p>거리 차이 = 지진파 속도 × 도착 시간 차이로 계산합니다.</p></div>
+<div class="step"><b>② 쌍곡선 그리기</b><p>두 관측소까지의 거리 차가 일정한 점들을 그래프에 나타냅니다.</p></div>
+<div class="step"><b>③ 교차 위치 비교</b><p>서로 다른 관측소 쌍의 조건을 겹쳐 진앙 후보의 위치를 살펴봅니다.</p></div>
+</div>
+</main>
+<footer>교육용 단순 모델 · 실제 지진의 진앙을 판정하거나 예측하는 도구가 아닙니다.</footer>
+<script>
+const $=id=>document.getElementById(id);
+const controls=['speed','dt1','dt2','noise']; let showCoords=true;
+const stations={A:[-8,0],B:[8,0],C:[-1,8]};
+function val(id){return Number($(id).value)}
+function draw(){
+ const speed=val('speed'),dt1=val('dt1'),dt2=val('dt2'),noise=val('noise');
+ $('speedOut').textContent=speed.toFixed(1)+' km/s';$('dt1Out').textContent=dt1.toFixed(1)+'초';$('dt2Out').textContent=dt2.toFixed(1)+'초';$('noiseOut').textContent=noise.toFixed(2)+'초';
+ $('statSpeed').textContent=speed.toFixed(1);$('dist1').textContent=(speed*dt1).toFixed(1)+' km';$('dist2').textContent=(speed*dt2).toFixed(1)+' km';
+ const c=$('plot'),ctx=c.getContext('2d'),W=c.width,H=c.height;
+ ctx.clearRect(0,0,W,H);ctx.fillStyle='#fbfdff';ctx.fillRect(0,0,W,H);
+ const xmin=-20,xmax=20,ymin=-14,ymax=18;
+ const X=x=> (x-xmin)/(xmax-xmin)*W, Y=y=> H-(y-ymin)/(ymax-ymin)*H;
+ // grid
+ ctx.lineWidth=1;ctx.strokeStyle='#e8edf5';
+ for(let x=Math.ceil(xmin/5)*5;x<=xmax;x+=5){ctx.beginPath();ctx.moveTo(X(x),0);ctx.lineTo(X(x),H);ctx.stroke()}
+ for(let y=Math.ceil(ymin/5)*5;y<=ymax;y+=5){ctx.beginPath();ctx.moveTo(0,Y(y));ctx.lineTo(W,Y(y));ctx.stroke()}
+ ctx.strokeStyle='#9aa8bc';ctx.beginPath();ctx.moveTo(X(0),0);ctx.lineTo(X(0),H);ctx.moveTo(0,Y(0));ctx.lineTo(W,Y(0));ctx.stroke();
+ // use exact locus |distance difference|=d, draw by distance-difference contour via scanning grid
+ function contour(color, focus1,focus2,dt){
+  const d=Math.max(.1,speed*dt);
+  const cell=2;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.globalAlpha=.88;
+  for(let x=xmin;x<xmax;x+=cell)for(let y=ymin;y<ymax;y+=cell){
+   const f=(xx,yy)=>Math.abs(Math.hypot(xx-focus1[0],yy-focus1[1])-Math.hypot(xx-focus2[0],yy-focus2[1]))-d;
+   const pts=[[x,y],[x+cell,y],[x+cell,y+cell],[x,y+cell]],fs=pts.map(p=>f(p[0],p[1])),hits=[];
+   for(let i=0;i<4;i++){let j=(i+1)%4;if(fs[i]===0||fs[i]*fs[j]<0){let t=fs[i]/(fs[i]-fs[j]);hits.push([pts[i][0]+t*(pts[j][0]-pts[i][0]),pts[i][1]+t*(pts[j][1]-pts[i][1])])}}
+   if(hits.length>=2){ctx.beginPath();ctx.moveTo(X(hits[0][0]),Y(hits[0][1]));ctx.lineTo(X(hits[1][0]),Y(hits[1][1]));ctx.stroke()}
+  }
+  ctx.globalAlpha=1;
+ }
+ contour('#2457d6',stations.A,stations.B,dt1+noise*.25);
+ contour('#0f9b8e',stations.A,stations.C,dt2-noise*.2);
+ // example epicenter marker (illustrative, not solved estimate)
+ const ep=[4,5];
+ ctx.fillStyle='#e58a24';ctx.beginPath();ctx.arc(X(ep[0]),Y(ep[1]),7,0,Math.PI*2);ctx.fill();ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
+ ctx.fillStyle='#8a5310';ctx.font='bold 14px system-ui';ctx.fillText('예시 진앙',X(ep[0])+10,Y(ep[1])-9);
+ if(showCoords){
+  for(const [name,p] of Object.entries(stations)){ctx.fillStyle='#172033';ctx.beginPath();ctx.arc(X(p[0]),Y(p[1]),6,0,Math.PI*2);ctx.fill();ctx.fillStyle='#172033';ctx.font='bold 14px system-ui';ctx.fillText(name+' ('+p[0]+', '+p[1]+')',X(p[0])+9,Y(p[1])-9)}
+ }
+ $('graphText').textContent=`현재 거리 차이 조건: A–B 약 ${(speed*dt1).toFixed(1)} km, A–C 약 ${(speed*dt2).toFixed(1)} km. 주황색 점은 그래프 설명을 위한 예시 진앙이며, 계산으로 구한 실제 교점이 아닙니다.`;
+}
+controls.forEach(id=>$(id).addEventListener('input',draw));
+$('reset').addEventListener('click',()=>{ $('speed').value=6;$('dt1').value=1;$('dt2').value=1.4;$('noise').value=0;draw()});
+$('toggle').addEventListener('click',()=>{showCoords=!showCoords;$('toggle').textContent=showCoords?'관측소 좌표 숨기기':'관측소 좌표 보기';draw()});
+draw();
+</script>
+</body>
+</html>
